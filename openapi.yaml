@@ -1,0 +1,428 @@
+openapi: 3.0.3
+info:
+  title: Industrial KPI Analytics API
+  description: |
+    API for accessing real-time industrial equipment KPI metrics from multiple locations.
+    
+    This API exposes 5 critical KPIs:
+    - **OEE** (Overall Equipment Effectiveness): Target > 75%
+    - **MTBF** (Mean Time Between Failures): Target > 100 cycles
+    - **MTTR** (Mean Time To Repair): Target < 4 hours
+    - **PVUR** (Plant Utilization Rate): Target > 80%
+    - **Availability**: Target > 85%
+    
+    ## Maintenance Triggers
+    
+    The LLM agent should trigger maintenance when:
+    
+    1. **CRITICAL (Immediate action required)**:
+       - OEE < 65% AND declining
+       - MTBF < 50 cycles
+       - MTTR > 8 hours
+       - Availability < 75%
+       - Multiple KPIs in "poor" status simultaneously
+    
+    2. **HIGH PRIORITY (Action within 24 hours)**:
+       - OEE between 65-75%
+       - MTBF between 50-100 cycles
+       - MTTR between 4-8 hours
+       - PVUR < 70%
+       - Availability between 75-85%
+    
+    3. **MEDIUM PRIORITY (Action within 72 hours)**:
+       - OEE between 75-85%
+       - Any KPI in "fair" status
+       - Trend showing degradation over time
+    
+    4. **LOW PRIORITY (Schedule in next maintenance window)**:
+       - All KPIs in acceptable range but showing early warning signs
+       - Preventive maintenance due to time elapsed
+  version: 1.0.0
+  contact:
+    name: Industrial Automation Team
+    email: maintenance@industry.com
+
+servers:
+  - url: https://raegan-nondifficult-uncompromisingly.ngrok-free.dev
+    description: Local KPI Analytics Server
+
+tags:
+  - name: health
+    description: Server health and status
+  - name: kpis
+    description: KPI metric endpoints
+  - name: locations
+    description: Location management
+
+paths:
+  /health:
+    get:
+      tags:
+        - health
+      summary: Health check
+      description: Check if the analytics server is running and responsive
+      operationId: getHealth
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                  monitored_locations:
+                    type: array
+                    items:
+                      type: string
+
+  /locations:
+    get:
+      tags:
+        - locations
+      summary: List all monitored locations
+      description: Get list of all industrial locations currently being monitored
+      operationId: getLocations
+      responses:
+        '200':
+          description: List of locations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  locations:
+                    type: array
+                    items:
+                      type: string
+                    example: ["location_1", "location_2", "location_3"]
+                  count:
+                    type: integer
+                    example: 3
+
+  /kpi/{location_id}/oee:
+    get:
+      tags:
+        - kpis
+      summary: Get OEE metric
+      description: |
+        Overall Equipment Effectiveness (OEE) metric.
+        
+        **Interpretation:**
+        - excellent: ≥ 85%
+        - good: 75-85%
+        - fair: 65-75%
+        - poor: < 65%
+        
+        **Maintenance Trigger:** OEE < 75% suggests equipment degradation
+      operationId: getOEE
+      parameters:
+        - name: location_id
+          in: path
+          required: true
+          description: Location identifier
+          schema:
+            type: string
+            example: "location_1"
+      responses:
+        '200':
+          description: OEE metric data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KPIResponse'
+        '404':
+          description: Location not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /kpi/{location_id}/mtbf:
+    get:
+      tags:
+        - kpis
+      summary: Get MTBF metric
+      description: |
+        Mean Time Between Failures (MTBF) in cycles.
+        
+        **Interpretation:**
+        - excellent: > 150 cycles
+        - good: 100-150 cycles
+        - fair: 50-100 cycles
+        - poor: < 50 cycles
+        
+        **Maintenance Trigger:** MTBF < 100 cycles indicates increasing failure rate
+      operationId: getMTBF
+      parameters:
+        - name: location_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: MTBF metric data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KPIResponse'
+        '404':
+          description: Location not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /kpi/{location_id}/mttr:
+    get:
+      tags:
+        - kpis
+      summary: Get MTTR metric
+      description: |
+        Mean Time To Repair (MTTR) in hours.
+        
+        **Interpretation:**
+        - excellent: < 2 hours
+        - good: 2-4 hours
+        - fair: 4-8 hours
+        - poor: > 8 hours
+        
+        **Maintenance Trigger:** MTTR > 4 hours suggests maintenance efficiency issues
+      operationId: getMTTR
+      parameters:
+        - name: location_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: MTTR metric data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KPIResponse'
+        '404':
+          description: Location not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /kpi/{location_id}/pvur:
+    get:
+      tags:
+        - kpis
+      summary: Get PVUR metric
+      description: |
+        Plant Utilization Rate (PVUR) percentage.
+        
+        **Interpretation:**
+        - excellent: ≥ 90%
+        - good: 80-90%
+        - fair: 70-80%
+        - poor: < 70%
+        
+        **Maintenance Trigger:** PVUR < 80% indicates underutilization
+      operationId: getPVUR
+      parameters:
+        - name: location_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: PVUR metric data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KPIResponse'
+        '404':
+          description: Location not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /kpi/{location_id}/availability:
+    get:
+      tags:
+        - kpis
+      summary: Get Availability metric
+      description: |
+        Equipment Availability percentage.
+        
+        **Interpretation:**
+        - excellent: ≥ 90%
+        - good: 85-90%
+        - fair: 75-85%
+        - poor: < 75%
+        
+        **Maintenance Trigger:** Availability < 85% requires attention
+      operationId: getAvailability
+      parameters:
+        - name: location_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Availability metric data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KPIResponse'
+        '404':
+          description: Location not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /kpi/{location_id}/all:
+    get:
+      tags:
+        - kpis
+      summary: Get all KPIs for a location
+      description: Retrieve all five KPI metrics for a specific location in one request
+      operationId: getAllKPIsForLocation
+      parameters:
+        - name: location_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: All KPI metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  location_id:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  kpis:
+                    $ref: '#/components/schemas/AllKPIs'
+        '404':
+          description: Location not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /kpi/all:
+    get:
+      tags:
+        - kpis
+      summary: Get all KPIs for all locations
+      description: Retrieve complete KPI data across all monitored locations
+      operationId: getAllKPIs
+      responses:
+        '200':
+          description: All KPIs for all locations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  timestamp:
+                    type: string
+                    format: date-time
+                  locations:
+                    type: object
+                    additionalProperties:
+                      $ref: '#/components/schemas/AllKPIs'
+
+components:
+  schemas:
+    KPIResponse:
+      type: object
+      properties:
+        location_id:
+          type: string
+          description: Location identifier
+          example: "location_1"
+        kpi:
+          type: string
+          description: KPI name
+          example: "OEE"
+        data:
+          $ref: '#/components/schemas/KPIData'
+
+    KPIData:
+      type: object
+      properties:
+        value:
+          type: number
+          format: float
+          description: Current KPI value
+          example: 78.5
+          nullable: true
+        status:
+          type: string
+          enum: [excellent, good, fair, poor, no_data, insufficient_data]
+          description: Health status based on value
+          example: "good"
+        unit:
+          type: string
+          description: Unit of measurement
+          example: "%"
+        target:
+          type: number
+          format: float
+          description: Target/threshold value
+          example: 75.0
+        timestamp:
+          type: string
+          format: date-time
+          description: When this metric was calculated
+        failures_detected:
+          type: integer
+          description: Number of failures (MTBF only)
+          nullable: true
+        repair_events:
+          type: integer
+          description: Number of repairs (MTTR only)
+          nullable: true
+        productive_cycles:
+          type: integer
+          description: Productive cycles count (PVUR only)
+          nullable: true
+        total_cycles:
+          type: integer
+          description: Total cycles (PVUR only)
+          nullable: true
+
+    AllKPIs:
+      type: object
+      properties:
+        OEE:
+          $ref: '#/components/schemas/KPIData'
+        MTBF:
+          $ref: '#/components/schemas/KPIData'
+        MTTR:
+          $ref: '#/components/schemas/KPIData'
+        PVUR:
+          $ref: '#/components/schemas/KPIData'
+        Availability:
+          $ref: '#/components/schemas/KPIData'
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "No data for location location_1"
